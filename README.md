@@ -25,7 +25,14 @@ Minimal FastAPI + Postgres service to search hospitals by MS-DRG near a ZIP radi
    ```bash
    docker compose up -d api
    # API at http://localhost:8000
+   # UI at http://localhost:8000/ui
    ```
+
+### Web UI
+
+- Open `http://localhost:8000/ui` for a minimal, unstyled HTML page that:
+  - Calls `/providers`
+  - Calls `/ask`
 
 ### REST API
 
@@ -83,6 +90,7 @@ curl -s -X POST http://localhost:8000/ask -H 'Content-Type: application/json' -d
 Indexes:
 - B-tree on `providers.zip_code`
 - Trigram GIN on `procedures.ms_drg_definition` for ILIKE
+- Spatial GiST on `providers (ll_to_earth(latitude, longitude))` via `earthdistance` for radius filtering
 
 ### Architecture Notes
 - Offline ZIP geocoding via `pgeocode` (no external service).

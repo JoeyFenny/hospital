@@ -1,5 +1,8 @@
 -- Enable trigram for better ILIKE performance
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- Enable earthdistance/cube for spatial indexing on lat/lon
+CREATE EXTENSION IF NOT EXISTS cube;
+CREATE EXTENSION IF NOT EXISTS earthdistance;
 
 CREATE TABLE IF NOT EXISTS providers (
     id SERIAL PRIMARY KEY,
@@ -14,6 +17,8 @@ CREATE TABLE IF NOT EXISTS providers (
 
 CREATE INDEX IF NOT EXISTS idx_providers_zip ON providers(zip_code);
 CREATE INDEX IF NOT EXISTS idx_providers_state ON providers(state);
+-- GiST index using earthdistance to accelerate radius queries on lat/lon
+CREATE INDEX IF NOT EXISTS idx_providers_ll_earth ON providers USING gist (ll_to_earth(latitude, longitude));
 
 CREATE TABLE IF NOT EXISTS procedures (
     id SERIAL PRIMARY KEY,

@@ -7,6 +7,7 @@ import orjson
 import pgeocode
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import ORJSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import and_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,10 @@ def _orjson_dumps(v, *, default):
 
 
 app = FastAPI(title=settings.app_name, default_response_class=ORJSONResponse)
+
+
+# Serve simple static frontend at /ui (directory created below)
+app.mount("/ui", StaticFiles(directory="frontend", html=True), name="ui")
 
 
 nomi = pgeocode.Nominatim("us")
@@ -55,7 +60,11 @@ async def get_providers(
     session: AsyncSession = Depends(get_session),
 ):
     lat, lon = geocode_zip(zip)
-    distance_expr = haversine_sql(lat, lon, Provider.latitude, Provider.longitude)
+    origin = func.ll_to_earth(literal(lat), literal(lon))
+    target = func.ll_to_earth(Provider.latitude, Provider.longitude)
+    radius_m = radius_km * 1000.0
+    # Use earthdistance/cube: bounding box uses GiST index, then precise distance filter
+    distance_expr = func.earth_distance(origin, target) / literal(1000.0)
 
     drg_like = f"%{drg}%"
 
@@ -80,7 +89,8 @@ async def get_providers(
                 Procedure.ms_drg_definition.ilike(drg_like),
                 Provider.latitude.isnot(None),
                 Provider.longitude.isnot(None),
-                distance_expr <= radius_km,
+                func.earth_box(origin, literal(radius_m)).op('@>')(target),
+                func.earth_distance(origin, target) <= literal(radius_m),
             )
         )
         .order_by(Procedure.average_covered_charges.asc())
@@ -123,7 +133,10 @@ async def ask(body: AskRequest, session: AsyncSession = Depends(get_session)):
         raise HTTPException(status_code=400, detail="Please include a 5-digit ZIP code in your question.")
     lat, lon = geocode_zip(params.zip_code)
     radius_km = params.radius_km or 40
-    distance_expr = haversine_sql(lat, lon, Provider.latitude, Provider.longitude)
+    origin = func.ll_to_earth(literal(lat), literal(lon))
+    target = func.ll_to_earth(Provider.latitude, Provider.longitude)
+    radius_m = radius_km * 1000.0
+    distance_expr = func.earth_distance(origin, target) / literal(1000.0)
 
     drg_like = f"%{params.drg_query or ''}%" if params.drg_query else "%"
 
@@ -146,7 +159,8 @@ async def ask(body: AskRequest, session: AsyncSession = Depends(get_session)):
                 Procedure.ms_drg_definition.ilike(drg_like),
                 Provider.latitude.isnot(None),
                 Provider.longitude.isnot(None),
-                distance_expr <= radius_km,
+                func.earth_box(origin, literal(radius_m)).op('@>')(target),
+                func.earth_distance(origin, target) <= literal(radius_m),
             )
         )
     )
@@ -187,7 +201,8 @@ async def ask(body: AskRequest, session: AsyncSession = Depends(get_session)):
                     Procedure.ms_drg_definition.ilike(drg_like),
                     Provider.latitude.isnot(None),
                     Provider.longitude.isnot(None),
-                    distance_expr <= radius_km,
+                    func.earth_box(origin, literal(radius_m)).op('@>')(target),
+                    func.earth_distance(origin, target) <= literal(radius_m),
                 )
             )
         )
