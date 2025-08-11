@@ -1,0 +1,14 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+SQLAlchemy[asyncio]==2.0.31
+asyncpg==0.29.0
+alembic==1.13.2
+pydantic==2.8.2
+python-dotenv==1.0.1
+orjson==3.10.6
+openai==1.40.0
+pandas==2.2.2
+numpy==2.0.1
+tenacity==8.5.0
+pgeocode==0.5.0
+
