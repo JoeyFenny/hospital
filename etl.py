@@ -18,9 +18,12 @@ from app.config import settings
 from app.models import Procedure, Provider, Rating
 from app.database import Base
 
+# Alembic programmatic API
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
+
 
 CSV_PATH = Path(__file__).parent / "sample_prices_ny.csv"
-MIGRATIONS = [Path(__file__).parent / "migrations" / "001_init.sql"]
 
 
 def clean_money(value: Any) -> float | None:
@@ -45,13 +48,36 @@ def stable_rating_from_provider_id(provider_id: str) -> int:
 
 
 async def apply_migrations(engine: AsyncEngine):
+    # Decide whether to upgrade or stamp based on existing schema
     async with engine.begin() as conn:
-        for sql_path in MIGRATIONS:
-            sql_text = sql_path.read_text()
-            # asyncpg cannot prepare multiple SQL statements at once; split and run individually
-            statements = [s.strip() for s in sql_text.split(";") if s.strip()]
-            for stmt in statements:
-                await conn.exec_driver_sql(stmt)
+        has_alembic_version = False
+        has_providers_table = False
+        # Use to_regclass which returns NULL if relation doesn't exist
+        res = await conn.exec_driver_sql("SELECT to_regclass('public.alembic_version')")
+        row = res.fetchone()
+        has_alembic_version = bool(row and row[0])
+
+        res2 = await conn.exec_driver_sql("SELECT to_regclass('public.providers')")
+        row2 = res2.fetchone()
+        has_providers_table = bool(row2 and row2[0])
+
+    # Configure Alembic
+    proj_root = Path(__file__).parent
+    alembic_ini = proj_root / "alembic.ini"
+    cfg = AlembicConfig(str(alembic_ini))
+    cfg.set_main_option("script_location", "alembic")
+    cfg.set_main_option("sqlalchemy.url", settings.database_url)
+
+    if has_alembic_version:
+        # Normal upgrade path
+        await asyncio.to_thread(alembic_command.upgrade, cfg, "head")
+    else:
+        if has_providers_table:
+            # Schema already applied from raw SQL; record current head
+            await asyncio.to_thread(alembic_command.stamp, cfg, "head")
+        else:
+            # Fresh DB; apply migrations
+            await asyncio.to_thread(alembic_command.upgrade, cfg, "head")
 
 
 async def load_csv(engine: AsyncEngine):

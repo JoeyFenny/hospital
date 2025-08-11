@@ -1,2 +1,2 @@
-# empty package marker
+"""App package for Healthcare Cost Navigator."""
 

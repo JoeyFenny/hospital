@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Healthcare Cost Navigator</title>
+  </head>
+  <body>
+    <h1>Healthcare Cost Navigator</h1>
+
+    <p><a href="/docs" target="_blank">/docs</a> | <a href="/redoc" target="_blank">/redoc</a></p>
+
+    <h2>Find Providers</h2>
+    <form id="providers-form">
+      <div>
+        <label>drg <input type="text" id="drg" required></label>
+      </div>
+      <div>
+        <label>zip <input type="text" id="zip" minlength="5" maxlength="5" required></label>
+      </div>
+      <div>
+        <label>radius_km <input type="number" id="radius" value="40" min="1" max="500"></label>
+      </div>
+      <button type="submit">Search</button>
+    </form>
+    <pre id="providers-results"></pre>
+
+    <h2>Ask</h2>
+    <form id="ask-form">
+      <div>
+        <label>question <input type="text" id="question" required></label>
+      </div>
+      <button type="submit">Ask</button>
+    </form>
+    <pre id="ask-result"></pre>
+
+    <script src="/ui/app.js"></script>
+  </body>
+  </html>

@@ -81,25 +81,29 @@ def extract_params_with_openai(question: str) -> NLParams:
     if not api_key or OpenAI is None:
         return _fallback_parse(question)
 
-    client = OpenAI(api_key=api_key)
-    system = (
-        "You are a data assistant that extracts structured parameters for hospital pricing queries. "
-        "Return a strict JSON object with keys: intent (one of cheapest, best_rated, average_cost, compare_costs), "
-        "drg_query (string or null), zip_code (5-digit string or null), radius_km (integer or null), top_k (int). "
-        "If query mentions miles, convert to kilometers. If not provided, use radius_km=40."
-    )
-    user = f"Question: {question}"
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        temperature=0.0,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        response_format={"type": "json_object"},
-    )
-    content = resp.choices[0].message.content or "{}"
-    data = json.loads(content)
+    # Fail-safe: if OpenAI SDK or HTTP stack has issues, fall back to regex parsing
+    try:
+        client = OpenAI(api_key=api_key)
+        system = (
+            "You are a data assistant that extracts structured parameters for hospital pricing queries. "
+            "Return a strict JSON object with keys: intent (one of cheapest, best_rated, average_cost, compare_costs), "
+            "drg_query (string or null), zip_code (5-digit string or null), radius_km (integer or null), top_k (int). "
+            "If query mentions miles, convert to kilometers. If not provided, use radius_km=40."
+        )
+        user = f"Question: {question}"
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.0,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format={"type": "json_object"},
+        )
+        content = resp.choices[0].message.content or "{}"
+        data = json.loads(content)
+    except Exception:
+        return _fallback_parse(question)
     intent = str(data.get("intent") or "cheapest").strip().lower()
     if intent not in INTENT_CHOICES:
         intent = "cheapest"

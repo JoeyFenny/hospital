@@ -16,8 +16,9 @@ Minimal FastAPI + Postgres service to search hospitals by MS-DRG near a ZIP radi
    docker compose build api
    ```
 
-2. Run migrations + ETL to seed the DB from `sample_prices_ny.csv`
+2. Run DB migrations (Alembic), then ETL to seed the DB from `sample_prices_ny.csv`
    ```bash
+   docker compose run --rm api alembic upgrade head
    docker compose run --rm api python etl.py
    ```
 
@@ -104,14 +105,32 @@ Indexes:
 - Async operations enable concurrency but increase code complexity compared to synchronous alternatives.
 
 ### Development
-Run locally without Docker (requires Postgres running):
+Run locally without Docker (requires Postgres running). You can run Alembic locally too:
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/hospital
+alembic upgrade head
 python etl.py
 uvicorn app.main:app --reload
 ```
+
+### Migrations (Alembic)
+- Create a new migration after model changes:
+  ```bash
+  alembic revision -m "your message" --autogenerate
+  ```
+- Apply migrations:
+  ```bash
+  alembic upgrade head
+  ```
+- If your DB was created previously using the raw SQL migration, the ETL flow or `alembic stamp head` can align the Alembic version with the current schema without recreating tables.
+
+### Unfinished tasks
+- Bonus: Integrate real Medicare star ratings instead of mock values
+  - Check availability of a stable ratings dataset and licensing
+  - Update ETL to ingest ratings and adjust `/ask` logic if needed
+- Add the referenced demo GIF asset (`demo.gif`) showing `/providers` and `/ask` in action
 
 ### Demo
 - Use the cURL commands above for `/providers` and `/ask`.
