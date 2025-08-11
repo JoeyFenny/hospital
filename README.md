@@ -89,6 +89,12 @@ Indexes:
 - Haversine distance computed in SQL expression for radius filtering.
 - AI layer only extracts parameters; ORM performs the query. This avoids executing arbitrary SQL while meeting the NL-to-SQL intent.
 
+#### Trade-offs
+- Using OpenAI for natural language parsing provides better accuracy but adds external dependency and potential costs; fallback to regex ensures basic functionality.
+- Haversine formula is efficient for distance calculations but provides straight-line distances, not accounting for actual travel routes.
+- Sample dataset limits scope to NY; scaling to full US data would require more robust ETL and storage.
+- Async operations enable concurrency but increase code complexity compared to synchronous alternatives.
+
 ### Development
 Run locally without Docker (requires Postgres running):
 ```bash
@@ -102,4 +108,5 @@ uvicorn app.main:app --reload
 ### Demo
 - Use the cURL commands above for `/providers` and `/ask`.
 - Add Loom recordings per deliverables when presenting.
+![Demo GIF showing /providers and /ask endpoints](demo.gif)
 
